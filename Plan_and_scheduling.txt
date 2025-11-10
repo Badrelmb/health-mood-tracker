@@ -1,0 +1,38 @@
+✅ Health Mood Tracker – 
+
+WEEK 1 — Core App (Data Input & Basic Visualization)
+
+Goal: Build a working Streamlit app that records daily entries and shows mood trends.
+Checklist
+ Create main Streamlit UI (app.py) with inputs: mood, energy, sleep, stress, tags, and journal.
+ Implement “Save Entry” button → store entries in data/entries.csv.
+ Load and display previous entries in a table.
+ Add VADER sentiment analysis for the journal text.
+ Show mood trend chart + 7-day moving average.
+ Handle missing/empty data gracefully.
+ Basic README setup (overview, install, how to run).
+
+WEEK 2 — Analytics, Insights & Optional Webcam
+
+Goal: Turn data into insights and add advanced visualizations.
+Checklist
+ Compute and display correlation matrix (mood, sleep, stress, energy, sentiment).
+ Implement lag analysis (e.g., yesterday’s sleep vs. today’s mood).
+ Add insight cards (plain text summaries of patterns).
+ Create word cloud or keyword frequency visualization.
+ Add optional webcam input (via OpenCV or Streamlit camera widget).
+ Store detected emotion (optional) alongside entry.
+ Update README with new features and screenshots.
+
+WEEK 3 — Polishing, Export, and Documentation
+
+Goal: Finalize for submission with full documentation and visual polish.
+Checklist
+ Add “Download CSV” export button.
+ Save charts as PNG into assets/ for README.
+ Improve UI layout and error handling.
+ Complete README (overview, methods, limitations, screenshots, license).
+ Add demo dataset (optional).
+ Verify .gitignore, dependencies, and reproducibility.
+ Push final version to GitHub and confirm public visibility.
+ Prepare short demo (click flow) for presentation.

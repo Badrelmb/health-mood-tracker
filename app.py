@@ -20,7 +20,7 @@ analyzer = SentimentIntensityAnalyzer()
 COLUMNS = [
     "timestamp", "date", "time",
     "mood", "energy", "sleep_hours", "stress",
-    "tags", "journal", "sentiment_compound"  # <— NEW
+    "tags", "journal", "sentiment_compound", "photo_path"  
 ]
 
 
@@ -68,6 +68,11 @@ with st.form("daily_checkin", clear_on_submit=True):
     tags = st.text_input("Tags (comma-separated, optional)", placeholder="exam, gym, coffee", help="Use short keywords to describe your day. They’ll be used later to find patterns")
     journal = st.text_area("Journal (optional)", placeholder="One or two lines about your day…",     help="A short reflection or summary of your day. The app analyzes this text for sentiment (positive/negative tone).")
 
+    enable_cam = st.checkbox("Enable webcam (optional)")
+    img_file = None
+    if enable_cam:
+        img_file = st.camera_input("Take a quick snapshot (optional)")
+
     submitted = st.form_submit_button("💾 Save Entry")
     if submitted:
         # Basic validation
@@ -77,6 +82,15 @@ with st.form("daily_checkin", clear_on_submit=True):
             now = datetime.now()
             text = journal.strip()
             sent = analyzer.polarity_scores(text)["compound"] if text else None
+            photo_path = ""
+            if img_file is not None:
+                # save image to data/captures with timestamped filename
+                img_bytes = img_file.getvalue()
+                photo_name = f"{now.strftime('%Y%m%d_%H%M%S')}.jpg"
+                photo_path = str(DATA_DIR / "captures" / photo_name)
+                with open(photo_path, "wb") as f:
+                    f.write(img_bytes)
+
             row = {
                 "timestamp": now.isoformat(timespec="seconds"),
                 "date": now.date().isoformat(),
@@ -147,3 +161,164 @@ else:
     col2.metric("Avg Mood (last 7 days)", f"{avg_7d:.1f}" if pd.notna(avg_7d) else "—")
     col3.metric("Avg Sentiment", f"{avg_sent:.2f}" if pd.notna(avg_sent) else "—")
 
+# ----- Correlation Matrix -----
+st.divider()
+st.subheader("🔗 Correlation Matrix (Mood vs. Factors)")
+
+# numeric columns that we will analyze
+target_cols = ["mood", "energy", "sleep_hours", "stress", "sentiment_compound"]
+present = [c for c in target_cols if c in df.columns]
+
+if len(present) < 2 or df.empty:
+    st.info("Not enough data yet to compute correlations. Add more entries.")
+else:
+    corr_df = df.copy()
+
+    for c in present:
+        corr_df[c] = pd.to_numeric(corr_df[c], errors="coerce")
+
+    corr_df = corr_df[present].dropna(how="all")
+
+    if len(corr_df) < 2:
+        st.info("Need at least two entries with numeric values to compute correlations.")
+    else:
+        corr = corr_df[present].corr(method="pearson")
+
+        st.write("Correlation values (Pearson):")
+        st.dataframe(corr.style.format("{:.2f}"), use_container_width=True)
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        im = ax.imshow(corr.values)  
+
+        # Axis ticks/labels
+        ax.set_xticks(range(len(present)))
+        ax.set_yticks(range(len(present)))
+        ax.set_xticklabels(present, rotation=45, ha="right")
+        ax.set_yticklabels(present)
+        ax.set_title("Correlation Heatmap")
+
+        for i in range(len(present)):
+            for j in range(len(present)):
+                ax.text(j, i, f"{corr.values[i, j]:.2f}",
+                        ha="center", va="center")
+
+        fig.tight_layout()
+        st.pyplot(fig)
+
+        st.caption("Tip: Values near +1 mean a strong positive relationship; near −1 mean a strong negative relationship.")
+
+# ----- Lag Analysis -----
+st.divider()
+st.subheader("⏳ Lag Analysis (Yesterday ➜ Today)")
+
+if df.empty:
+    st.info("Not enough data yet to analyze lags. Add more daily entries first.")
+else:
+    lag_df = df.copy()
+    lag_df["date"] = pd.to_datetime(lag_df["date"])
+    lag_df = lag_df.sort_values("date")
+
+    for col in ["mood", "sleep_hours", "stress", "energy"]:
+        lag_df[col] = pd.to_numeric(lag_df[col], errors="coerce")
+
+    lag_df["sleep_lag1"] = lag_df["sleep_hours"].shift(1)
+    lag_df["stress_lag1"] = lag_df["stress"].shift(1)
+    lag_df["energy_lag1"] = lag_df["energy"].shift(1)
+
+    lag_corrs = {
+        "Sleep (yesterday) → Mood (today)": lag_df["sleep_lag1"].corr(lag_df["mood"]),
+        "Stress (yesterday) → Mood (today)": lag_df["stress_lag1"].corr(lag_df["mood"]),
+        "Energy (yesterday) → Mood (today)": lag_df["energy_lag1"].corr(lag_df["mood"]),
+    }
+
+    lag_table = pd.DataFrame(lag_corrs, index=["Pearson r"]).T
+    st.dataframe(lag_table.style.format("{:.2f}"), use_container_width=True)
+
+    st.subheader("💡 Insights from Lag Analysis")
+    for name, corr in lag_corrs.items():
+        if pd.notna(corr):
+            if corr > 0.3:
+                st.success(f"{name} shows a *positive* relationship (r = {corr:.2f}). "
+                           f"Better {name.split(' (')[0].lower()} may improve next-day mood.")
+            elif corr < -0.3:
+                st.warning(f"{name} shows a *negative* relationship (r = {corr:.2f}). "
+                           f"Higher values tend to lower next-day mood.")
+            else:
+                st.info(f"{name} has a weak or no clear relationship (r = {corr:.2f}).")
+        else:
+            st.info(f"{name}: not enough paired data yet.")
+
+# ----- Insight Cards -----
+st.divider()
+st.subheader("🧭 Insight Cards")
+
+if df.empty:
+    st.info("Add more entries to generate insights.")
+else:
+    ins = df.copy()
+    ins["date"] = pd.to_datetime(ins["date"])
+    ins = ins.sort_values("date")
+
+    for col in ["mood", "sleep_hours", "stress", "energy", "sentiment_compound"]:
+        if col in ins.columns:
+            ins[col] = pd.to_numeric(ins[col], errors="coerce")
+
+    # Build lag features (yesterday → today) for comparisons
+    ins["sleep_lag1"] = ins["sleep_hours"].shift(1)
+    ins["stress_lag1"] = ins["stress"].shift(1)
+    ins["energy_lag1"] = ins["energy"].shift(1)
+
+    def insight_card(title: str, desc: str, delta: float | None, n_a: int, n_b: int):
+        if delta is None or pd.isna(delta):
+            st.info(f"**{title}**\n\n{desc}\n\n*Not enough data yet.*")
+            return
+        tone = st.success if abs(delta) >= 0.5 else (st.warning if abs(delta) >= 0.25 else st.info)
+        symbol = "▲" if delta > 0 else ("▼" if delta < 0 else "■")
+        tone(f"**{title}**  \n{desc}  \n**Δ = {delta:+.2f}** ({symbol})  \n*n₁ = {n_a}, n₂ = {n_b}*")
+
+    # 1) Yesterday's Sleep: ≥7h vs <7h → Today's Mood
+    comp = ins.dropna(subset=["mood", "sleep_lag1"])
+    grp_hi = comp[comp["sleep_lag1"] >= 7]["mood"]
+    grp_lo = comp[comp["sleep_lag1"] < 7]["mood"]
+    delta_sleep = (grp_hi.mean() - grp_lo.mean()) if (len(grp_hi) >= 5 and len(grp_lo) >= 5) else None
+    insight_card(
+        "Sleep (Yesterday) vs Mood (Today)",
+        "Comparing days after **≥7h** sleep vs **<7h** sleep.",
+        delta_sleep, len(grp_hi), len(grp_lo)
+    )
+
+    # 2) Yesterday's Stress: ≤2 vs ≥4 → Today's Mood
+    comp = ins.dropna(subset=["mood", "stress_lag1"])
+    grp_low = comp[comp["stress_lag1"] <= 2]["mood"]
+    grp_high = comp[comp["stress_lag1"] >= 4]["mood"]
+    delta_stress = (grp_low.mean() - grp_high.mean()) if (len(grp_low) >= 5 and len(grp_high) >= 5) else None
+    insight_card(
+        "Stress (Yesterday) vs Mood (Today)",
+        "Comparing days after **low stress (≤2)** vs **high stress (≥4)**.",
+        delta_stress, len(grp_low), len(grp_high)
+    )
+
+    # 3) Energy (Yesterday): ≥7 vs <7 → Today's Mood
+    comp = ins.dropna(subset=["mood", "energy_lag1"])
+    grp_ehi = comp[comp["energy_lag1"] >= 7]["mood"]
+    grp_elo = comp[comp["energy_lag1"] < 7]["mood"]
+    delta_energy = (grp_ehi.mean() - grp_elo.mean()) if (len(grp_ehi) >= 5 and len(grp_elo) >= 5) else None
+    insight_card(
+        "Energy (Yesterday) vs Mood (Today)",
+        "Comparing days after **high energy (≥7)** vs **lower energy (<7)**.",
+        delta_energy, len(grp_ehi), len(grp_elo)
+    )
+
+    if "tags" in ins.columns:
+        tags_norm = ins.copy()
+        tags_norm["has_gym"] = tags_norm["tags"].fillna("").str.lower().str.contains(r"\bgym\b")
+        grp_gym = tags_norm[tags_norm["has_gym"]]["mood"]
+        grp_nogym = tags_norm[~tags_norm["has_gym"]]["mood"]
+        delta_gym = (grp_gym.mean() - grp_nogym.mean()) if (len(grp_gym) >= 5 and len(grp_nogym) >= 5) else None
+        insight_card(
+            "Tag Insight: 'gym' Days",
+            "Same-day mood on entries tagged **gym** vs days without that tag.",
+            delta_gym, len(grp_gym), len(grp_nogym)
+        )
+
+    st.caption("Notes: Δ shows mean difference between groups. Insights shown only when each group has at least 5 samples to avoid noise.")
