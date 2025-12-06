@@ -6,3 +6,4 @@ opencv-python==4.8.1.78
 wordcloud==1.9.3          
 scipy==1.13.1             
 numpy==1.26.4
+scikit-learn==1.5.2
