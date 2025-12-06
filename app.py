@@ -6,7 +6,8 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-
+from sklearn.linear_model import LinearRegression
+import numpy as np
 
 
 # ---------- Paths ----------
@@ -322,3 +323,107 @@ else:
         )
 
     st.caption("Notes: Δ shows mean difference between groups. Insights shown only when each group has at least 5 samples to avoid noise.")
+
+# ----- Tomorrow's Mood Prediction -----
+st.divider()
+st.subheader("🔮 Tomorrow's Mood Prediction")
+
+if df.empty or len(df) < 8:
+    st.info("Not enough data yet to train a prediction model. Add more daily entries.")
+else:
+    pred_df = df.copy()
+    pred_df["date"] = pd.to_datetime(pred_df["date"])
+    pred_df = pred_df.sort_values("date")
+
+    # Ensure numeric types
+    for col in ["mood", "sleep_hours", "stress", "energy", "sentiment_compound"]:
+        if col in pred_df.columns:
+            pred_df[col] = pd.to_numeric(pred_df[col], errors="coerce")
+
+    # Recent rolling averages (3-day)
+    pred_df["mood_avg3"] = pred_df["mood"].rolling(3).mean()
+    pred_df["stress_avg3"] = pred_df["stress"].rolling(3).mean()
+    pred_df["sleep_avg3"] = pred_df["sleep_hours"].rolling(3).mean()
+
+    # Day-of-week as number (0=Monday,...,6=Sunday)
+    pred_df["weekday"] = pred_df["date"].dt.weekday
+
+    # Target: tomorrow's mood (shift -1)
+    pred_df["mood_tomorrow"] = pred_df["mood"].shift(-1)
+
+    # Features taken from "today" (row D) to predict mood at D+1
+    feature_cols = [
+        "mood",
+        "sleep_hours",
+        "stress",
+        "energy",
+        "sentiment_compound",
+        "mood_avg3",
+        "stress_avg3",
+        "sleep_avg3",
+        "weekday",
+    ]
+
+    # Drop rows that don't have all needed values
+    train_df = pred_df.dropna(subset=feature_cols + ["mood_tomorrow"])
+
+    if len(train_df) < 8:
+        st.info("Not enough complete rows to train the model yet. Keep logging for a few more days.")
+    else:
+        X = train_df[feature_cols].values
+        y = train_df["mood_tomorrow"].values
+
+        # Train a simple linear regression model
+        model = LinearRegression()
+        model.fit(X, y)
+
+        # Evaluate basic fit on training data (R^2)
+        r2 = model.score(X, y)
+
+        # Use the most recent day as "today" to predict tomorrow
+        latest_row = pred_df.sort_values("date").iloc[-1]
+        latest_features = latest_row[feature_cols]
+
+        if latest_features.isna().any():
+            st.info("The latest entry is missing some values, so prediction cannot be made yet.")
+        else:
+            X_latest = latest_features.values.reshape(1, -1)
+            pred_mood = float(model.predict(X_latest)[0])
+            # Clip prediction to valid mood scale
+            pred_mood = max(1.0, min(10.0, pred_mood))
+
+            col1, col2 = st.columns(2)
+            col1.metric(
+                "Predicted Mood (Tomorrow)",
+                f"{pred_mood:.1f}",
+                help="Estimated mood score for your next day based on your recent patterns."
+            )
+            col2.metric(
+                "Model Fit (R² on history)",
+                f"{r2:.2f}",
+                help="How well the model explains variation in your past mood data (1.0 = perfect, 0 = no fit)."
+            )
+
+            # Feature importance (absolute coefficient magnitude)
+            coefs = model.coef_
+            importance = pd.DataFrame({
+                "feature": feature_cols,
+                "coef": coefs,
+                "importance": np.abs(coefs),
+            }).sort_values("importance", ascending=False)
+
+            st.markdown("**Which factors influence the prediction the most?**")
+            st.dataframe(importance[["feature", "coef"]].style.format({"coef": "{:.2f}"}), use_container_width=True)
+
+            # Optional: simple bar chart for importance
+            fig_imp, ax_imp = plt.subplots(figsize=(6, 4))
+            ax_imp.barh(importance["feature"], importance["importance"])
+            ax_imp.invert_yaxis()
+            ax_imp.set_xlabel("Absolute Coefficient (Importance)")
+            ax_imp.set_title("Feature Importance for Tomorrow's Mood")
+            st.pyplot(fig_imp)
+
+            st.caption(
+                "Note: This is a simple linear regression model trained on your own history. "
+                "It provides an approximate forecast, not a guaranteed outcome."
+            )
