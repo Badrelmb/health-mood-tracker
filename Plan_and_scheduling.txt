@@ -1,38 +1,92 @@
-✅ Health Mood Tracker – 
+Health Mood Tracker – Development Plan & Schedule
+------------------------------------------------
 
-WEEK 1 — Core App (Data Input & Basic Visualization)
+This document outlines the planned and completed development steps for the
+Health Mood Tracker project. The work is organized into three primary phases
+(Week 1–3), reflecting the project timeline for the Open Source Software
+course.
 
-Goal: Build a working Streamlit app that records daily entries and shows mood trends.
-Checklist
- Create main Streamlit UI (app.py) with inputs: mood, energy, sleep, stress, tags, and journal.
- Implement “Save Entry” button → store entries in data/entries.csv.
- Load and display previous entries in a table.
- Add VADER sentiment analysis for the journal text.
- Show mood trend chart + 7-day moving average.
- Handle missing/empty data gracefully.
- Basic README setup (overview, install, how to run).
+------------------------------------------------
+Week 1-2 – App Structure, Data Input, and Storage
+------------------------------------------------
+Goals:
+- Set up project repository and virtual environment.
+- Build the main Streamlit interface (Daily Check-In Form).
+- Implement form handling and save data to CSV.
+- Add optional webcam snapshot saving.
+- Display recent entries in a table.
+- Ensure consistent project structure and .gitignore rules.
+- Create initial requirements.txt file.
 
-WEEK 2 — Analytics, Insights & Optional Webcam
+Completed Tasks:
+- Streamlit UI for mood, energy, sleep, stress, tags, journal.
+- entries.csv auto-creation and data append logic.
+- Timestamping (date, time, ISO format).
+- Webcam image saving into local folder.
+- Table view for recent entries.
+- Bug fixes related to CSV formatting and numeric conversions.
 
-Goal: Turn data into insights and add advanced visualizations.
-Checklist
- Compute and display correlation matrix (mood, sleep, stress, energy, sentiment).
- Implement lag analysis (e.g., yesterday’s sleep vs. today’s mood).
- Add insight cards (plain text summaries of patterns).
- Create word cloud or keyword frequency visualization.
- Add optional webcam input (via OpenCV or Streamlit camera widget).
- Store detected emotion (optional) alongside entry.
- Update README with new features and screenshots.
+------------------------------------------------
+Week 3-4 – Data Visualization & Analytical Features
+------------------------------------------------
+Goals:
+- Visualize mood over time with rolling averages.
+- Compute basic descriptive statistics.
+- Implement correlation and heatmap analysis.
+- Add lag analysis (yesterday → today relationships).
+- Generate insight cards comparing meaningful groups.
+- Build keyword frequency extraction and word cloud visualization.
 
-WEEK 3 — Polishing, Export, and Documentation
+Completed Tasks:
+- Mood trend line chart with 7-day smoothing.
+- Summary metrics (avg mood, recent avg, avg sentiment).
+- Pearson correlation matrix + heatmap.
+- Lag feature computation (sleep_lag1, stress_lag1, energy_lag1).
+- Group-wise insights (sleep ≥7h, stress categories, tags, etc.).
+- Word cloud generation and frequency table.
+- Error handling for missing/insufficient data.
 
-Goal: Finalize for submission with full documentation and visual polish.
-Checklist
- Add “Download CSV” export button.
- Save charts as PNG into assets/ for README.
- Improve UI layout and error handling.
- Complete README (overview, methods, limitations, screenshots, license).
- Add demo dataset (optional).
- Verify .gitignore, dependencies, and reproducibility.
- Push final version to GitHub and confirm public visibility.
- Prepare short demo (click flow) for presentation.
+------------------------------------------------
+Week 4-5 – Machine Learning & Final Integration
+------------------------------------------------
+Goals:
+- Implement simple ML model for predicting next-day mood.
+- Use linear regression with lag, rolling, and sentiment features.
+- Display predicted mood, model R² score, and feature importance.
+- Clean UI integration inside Streamlit.
+- Finalize README.md and repository documentation.
+- Prepare GitHub for submission (public repo, license, etc.).
+
+Completed Tasks:
+- Feature engineering:
+  - 3-day rolling averages (mood_avg3, stress_avg3, sleep_avg3)
+  - sentiment compound scores
+  - weekday encoding
+  - mood_tomorrow target
+- LinearRegression model training and prediction.
+- Feature importance table + bar chart.
+- Prediction metric cards (Predicted Mood & R²).
+- Complete README with screenshots section, installation steps, and license.
+- Add LICENSE (MIT) and repo cleanup.
+- Final testing of app with sample data.
+
+------------------------------------------------
+Development Tools & Environment
+------------------------------------------------
+- Python 3.11
+- Streamlit
+- pandas, numpy
+- vaderSentiment
+- scikit-learn
+- matplotlib
+- wordcloud
+- Local virtual environment (.venv)
+- GitHub for version control (public repository)
+
+------------------------------------------------
+Notes
+------------------------------------------------
+- All user data remains local in data/entries.csv.
+- The app was built incrementally and tested at each step.
+- Requirements.txt was updated as new dependencies were introduced.
+- GitHub token was renewed and local authentication updated.
